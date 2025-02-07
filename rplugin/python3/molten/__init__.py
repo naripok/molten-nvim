@@ -127,13 +127,17 @@ class Molten:
         return maybe_molten
 
     def _clear_on_buf_leave(self) -> None:
+        """Only clear interface elements without affecting kernel state"""
         if not self.initialized:
             return
 
-        for molten_kernels in self.buffers.values():
-            for molten_kernel in molten_kernels:
-                molten_kernel.clear_interface()
-                molten_kernel.clear_open_output_windows()
+        molten_kernels = self._get_current_buf_kernels(False)
+        if molten_kernels is None:
+            return
+
+        for kernel in molten_kernels:
+            kernel.clear_interface()
+            kernel.clear_open_output_windows()
 
     def _clear_interface(self) -> None:
         if not self.initialized:
@@ -252,14 +256,20 @@ class Molten:
             self.nvim.lua._prompt_init(kernels, PROMPT)
 
     def _deinit_buffer(self, molten_kernels: List[MoltenKernel]) -> None:
-        # Have to copy this to get around reference issues
-        for kernel in [x for x in molten_kernels]:
-            kernel.deinit()
-            for buf in kernel.buffers:
-                self.buffers[buf.number].remove(kernel)
-                if len(self.buffers[buf.number]) == 0:
-                    del self.buffers[buf.number]
-            del self.molten_kernels[kernel.kernel_id]
+        current_buffer = self.nvim.current.buffer
+        for kernel in molten_kernels[:]:  # Iterate over copy
+            # Remove current buffer from kernel's attached buffers
+            if current_buffer in kernel.attached_buffers:
+                kernel.attached_buffers.remove(current_buffer)
+            
+            # Clean up interface but preserve kernel runtime
+            kernel.clear_interface()
+            
+            # Only fully deinit if no buffers remain
+            if len(kernel.attached_buffers) == 0:
+                kernel.deinit()
+                molten_kernels.remove(kernel)
+                del self.molten_kernels[kernel.kernel_id]
 
     def _do_evaluate_expr(self, kernel_name: str, expr):
         self._initialize_if_necessary()

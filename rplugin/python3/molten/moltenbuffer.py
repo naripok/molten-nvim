@@ -25,7 +25,7 @@ class MoltenKernel:
     canvas: Canvas
     highlight_namespace: int
     extmark_namespace: int
-    buffers: List[Buffer]
+    attached_buffers: List[Buffer]  # All buffers using this kernel
 
     runtime: JupyterRuntime
 
@@ -84,9 +84,11 @@ class MoltenKernel:
         self.buffers.append(buffer)
 
     def deinit(self) -> None:
-        self._doautocmd("MoltenDeinitPre")
-        self.runtime.deinit()
-        self._doautocmd("MoltenDeinitPost")
+        """Only shutdown runtime if no buffers remain attached"""
+        if len(self.attached_buffers) == 0:
+            self._doautocmd("MoltenDeinitPre")
+            self.runtime.deinit()
+            self._doautocmd("MoltenDeinitPost")
 
     def interrupt(self) -> None:
         self.runtime.interrupt()
