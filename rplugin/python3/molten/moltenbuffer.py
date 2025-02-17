@@ -1,20 +1,19 @@
+import hashlib
 from contextlib import AbstractContextManager
 from datetime import datetime
-from typing import IO, Callable, List, Optional, Dict, Tuple
 from queue import Queue
-import hashlib
+from typing import IO, Callable, Dict, List, Optional, Tuple
 
-from pynvim import Nvim
-from pynvim.api import Buffer
 from molten.code_cell import CodeCell
-
-from molten.options import MoltenOptions
 from molten.images import Canvas
-from molten.position import Position
-from molten.utils import notify_error, notify_info, notify_warn
+from molten.options import MoltenOptions
 from molten.outputbuffer import OutputBuffer
 from molten.outputchunks import ImageOutputChunk, OutputChunk, OutputStatus
+from molten.position import Position
 from molten.runtime import JupyterRuntime
+from molten.utils import notify_error, notify_info, notify_warn
+from pynvim import Nvim
+from pynvim.api import Buffer
 
 
 class MoltenKernel:
@@ -25,7 +24,7 @@ class MoltenKernel:
     canvas: Canvas
     highlight_namespace: int
     extmark_namespace: int
-    attached_buffers: List[Buffer]  # All buffers using this kernel
+    buffers: List[Buffer]  # All buffers using this kernel
 
     runtime: JupyterRuntime
 
@@ -85,7 +84,7 @@ class MoltenKernel:
 
     def deinit(self) -> None:
         """Only shutdown runtime if no buffers remain attached"""
-        if len(self.attached_buffers) == 0:
+        if len(self.buffers) == 0:
             self._doautocmd("MoltenDeinitPre")
             self.runtime.deinit()
             self._doautocmd("MoltenDeinitPost")

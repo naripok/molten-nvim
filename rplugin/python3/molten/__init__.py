@@ -1,22 +1,24 @@
 import json
 import os
-from typing import Any, Dict, List, Optional, Tuple
 from itertools import chain
+from typing import Any, Dict, List, Optional, Tuple
 
 import pynvim
-from pynvim.api import Buffer
 from molten.code_cell import CodeCell
-from molten.images import Canvas, get_canvas_given_provider, WeztermCanvas
+from molten.images import Canvas, WeztermCanvas, get_canvas_given_provider
 from molten.info_window import create_info_window
-from molten.ipynb import export_outputs, get_default_import_export_file, import_outputs
-from molten.save_load import MoltenIOError, get_default_save_file, load, save
+from molten.ipynb import (export_outputs, get_default_import_export_file,
+                          import_outputs)
 from molten.moltenbuffer import MoltenKernel
 from molten.options import MoltenOptions
 from molten.outputbuffer import OutputBuffer
 from molten.position import DynamicPosition, Position
 from molten.runtime import get_available_kernels
-from molten.utils import MoltenException, notify_error, notify_info, notify_warn, nvimui
+from molten.save_load import MoltenIOError, get_default_save_file, load, save
+from molten.utils import (MoltenException, notify_error, notify_info,
+                          notify_warn, nvimui)
 from pynvim import Nvim
+from pynvim.api import Buffer
 
 
 @pynvim.plugin
@@ -259,14 +261,14 @@ class Molten:
         current_buffer = self.nvim.current.buffer
         for kernel in molten_kernels[:]:  # Iterate over copy
             # Remove current buffer from kernel's attached buffers
-            if current_buffer in kernel.attached_buffers:
-                kernel.attached_buffers.remove(current_buffer)
-            
+            if current_buffer in kernel.buffers:
+                kernel.buffers.remove(current_buffer)
+
             # Clean up interface but preserve kernel runtime
             kernel.clear_interface()
-            
+
             # Only fully deinit if no buffers remain
-            if len(kernel.attached_buffers) == 0:
+            if len(kernel.buffers) == 0:
                 kernel.deinit()
                 molten_kernels.remove(kernel)
                 del self.molten_kernels[kernel.kernel_id]
@@ -605,9 +607,10 @@ class Molten:
             )
         elif len(kernels) == 1:
             import re
-            pat = r'(^|[^\\])%k'
+
+            pat = r"(^|[^\\])%k"
             c = re.sub(pat, lambda x: x[1] + kernels[0].kernel_id, command)
-            c = c.replace(r"\%k", "%k") # un-escape escaped chars
+            c = c.replace(r"\%k", "%k")  # un-escape escaped chars
             self.nvim.command(c)
         else:
             PROMPT = "Please select a kernel:"
